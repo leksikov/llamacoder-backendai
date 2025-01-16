@@ -12,25 +12,6 @@ export default function CodeRunner({
   language: string;
   code: string;
 }) {
+  // For now, use React runner for all code to avoid server-side crypto issues
   return <CodeRunnerReact code={code} />;
-
-  return (
-    <>
-      {language === "python" ? (
-        <CodeRunnerServerAction
-          code={code}
-          runCodeAction={runPythonCode}
-          key={code}
-        />
-      ) : ["ts", "js", "javascript", "typescript"].includes(language) ? (
-        <CodeRunnerServerAction
-          code={code}
-          runCodeAction={runJavaScriptCode}
-          key={code}
-        />
-      ) : (
-        <CodeRunnerReact code={code} />
-      )}
-    </>
-  );
 }

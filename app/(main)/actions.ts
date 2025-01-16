@@ -26,22 +26,81 @@ export async function createChat(
     },
   });
 
-  let options: ConstructorParameters<typeof Together>[0] = {};
-  if (process.env.HELICONE_API_KEY) {
-    options.baseURL = "https://together.helicone.ai/v1";
-    options.defaultHeaders = {
-      "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-      "Helicone-Property-appname": "LlamaCoder",
-      "Helicone-Session-Id": chat.id,
-      "Helicone-Session-Name": "LlamaCoder Chat",
-    };
+  async function makeBackendAIRequest(messages: any[], stream = false) {
+    const baseUrl = process.env.BACKEND_AI_ENDPOINT!.replace(/\/$/, ''); // Remove trailing slash if present
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.BACKEND_AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: process.env.MODEL_NAME,
+        messages,
+        stream,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Backend.AI request failed: ${errorText}`);
+    }
+
+    return stream ? response.body : response.json();
   }
 
-  const together = new Together(options);
+  function getClientConfig(forModel: string) {
+    const isModelBackendAI = forModel === process.env.MODEL_NAME;
+    let options: ConstructorParameters<typeof Together>[0] = {};
+    
+    if (isModelBackendAI) {
+      options.baseURL = process.env.BACKEND_AI_ENDPOINT;
+      options.defaultHeaders = {
+        "Authorization": `Bearer ${process.env.BACKEND_AI_API_KEY}`,
+        "Content-Type": "application/json"
+      };
+      options.apiKey = "not-needed"; // Backend.AI doesn't need Together's API key
+    } else if (process.env.HELICONE_API_KEY) {
+      options.baseURL = "https://together.helicone.ai/v1";
+      options.defaultHeaders = {
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-appname": "LlamaCoder",
+        "Helicone-Session-Id": chat.id,
+        "Helicone-Session-Name": "LlamaCoder Chat",
+      };
+      options.apiKey = process.env.TOGETHER_API_KEY;
+    } else {
+      options.apiKey = process.env.TOGETHER_API_KEY;
+    }
+    
+    return options;
+  }
 
   async function fetchTitle() {
-    const responseForChatTitle = await together.chat.completions.create({
-      model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    const modelToUse = model === process.env.MODEL_NAME! ? process.env.MODEL_NAME! : "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo";
+    
+    if (modelToUse === process.env.MODEL_NAME) {
+      const titleRes = await makeBackendAIRequest([
+        {
+          role: "system",
+          content: "You are a chatbot helping the user create a simple app or script, and your current job is to create a succinct title, maximum 3-5 words, for the chat given their initial prompt. Please return only the title.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ]);
+      return titleRes.choices[0].message.content;
+    }
+
+    const options = getClientConfig(modelToUse);
+    const client = new Together({
+      apiKey: options.apiKey || "",
+      ...options
+    });
+    
+    const responseForChatTitle = await client.chat.completions.create({
+      model: modelToUse,
       messages: [
         {
           role: "system",
@@ -59,8 +118,36 @@ export async function createChat(
   }
 
   async function fetchTopExample() {
-    const findSimilarExamples = await together.chat.completions.create({
-      model: "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    const modelToUse = model === process.env.MODEL_NAME! ? process.env.MODEL_NAME! : "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo";
+    
+    if (modelToUse === process.env.MODEL_NAME) {
+      const exampleRes = await makeBackendAIRequest([
+        {
+          role: "system",
+          content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
+
+          - landing page
+          - blog app
+          - quiz app
+          - pomodoro timer
+          `,
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ]);
+      return exampleRes.choices[0].message.content;
+    }
+
+    const options = getClientConfig(modelToUse);
+    const client = new Together({
+      apiKey: options.apiKey || "",
+      ...options
+    });
+    
+    const findSimilarExamples = await client.chat.completions.create({
+      model: modelToUse,
       messages: [
         {
           role: "system",
@@ -91,8 +178,19 @@ export async function createChat(
 
   let fullScreenshotDescription;
   if (screenshotUrl) {
-    const screenshotResponse = await together.chat.completions.create({
-      model: "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
+    if (model === process.env.MODEL_NAME) {
+      throw new Error("Screenshot to code is not supported with Backend.AI model");
+    }
+
+    const modelToUse = "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo";
+    const options = getClientConfig(modelToUse);
+    const client = new Together({
+      apiKey: options.apiKey || "",
+      ...options
+    });
+    
+    const screenshotResponse = await client.chat.completions.create({
+      model: modelToUse,
       temperature: 0.2,
       max_tokens: 1000,
       messages: [
@@ -117,25 +215,47 @@ export async function createChat(
 
   let userMessage: string;
   if (quality === "high") {
-    let initialRes = await together.chat.completions.create({
-      model: "Qwen/Qwen2.5-Coder-32B-Instruct",
-      messages: [
+    const modelToUse = model;
+    
+    if (modelToUse === process.env.MODEL_NAME) {
+      const initialRes = await makeBackendAIRequest([
         {
           role: "system",
-          content: softwareArchitectPrompt,
+          content: "You are a helpful AI assistant that writes high quality code.",
         },
         {
           role: "user",
-          content: fullScreenshotDescription
-            ? fullScreenshotDescription + prompt
-            : prompt,
+          content: prompt,
         },
-      ],
-      temperature: 0.2,
-      max_tokens: 3000,
-    });
+      ]);
+      userMessage = initialRes.choices[0].message.content;
+    } else {
+      const options = getClientConfig(modelToUse);
+      const client = new Together({
+        apiKey: options.apiKey || "",
+        ...options
+      });
+      
+      let initialRes = await client.chat.completions.create({
+        model: modelToUse,
+        messages: [
+          {
+            role: "system",
+            content: softwareArchitectPrompt,
+          },
+          {
+            role: "user",
+            content: fullScreenshotDescription
+              ? fullScreenshotDescription + prompt
+              : prompt,
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 3000,
+      });
 
-    userMessage = initialRes.choices[0].message?.content ?? prompt;
+      userMessage = initialRes.choices[0].message?.content ?? prompt;
+    }
   } else if (fullScreenshotDescription) {
     userMessage =
       prompt +
@@ -210,8 +330,10 @@ export async function getNextCompletionStreamPromise(
   model: string,
 ) {
   const message = await prisma.message.findUnique({ where: { id: messageId } });
-  if (!message) notFound();
-
+  if (!message) {
+    throw new Error("Message not found");
+  }
+  
   const messagesRes = await prisma.message.findMany({
     where: { chatId: message.chatId, position: { lte: message.position } },
     orderBy: { position: "asc" },
@@ -226,7 +348,57 @@ export async function getNextCompletionStreamPromise(
     )
     .parse(messagesRes);
 
-  let options: ConstructorParameters<typeof Together>[0] = {};
+  async function makeBackendAIRequest(messages: any[], stream = false) {
+    const baseUrl = process.env.BACKEND_AI_ENDPOINT!.replace(/\/$/, ''); // Remove trailing slash if present
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.BACKEND_AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: process.env.MODEL_NAME,
+        messages,
+        stream,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Backend.AI request failed: ${errorText}`);
+    }
+
+    return stream ? response.body : response.json();
+  }
+
+  function getClientConfig(forModel: string) {
+    const isModelBackendAI = forModel === process.env.MODEL_NAME;
+    let options: ConstructorParameters<typeof Together>[0] = {};
+    
+    if (isModelBackendAI) {
+      options.baseURL = process.env.BACKEND_AI_ENDPOINT;
+      options.defaultHeaders = {
+        "Authorization": `Bearer ${process.env.BACKEND_AI_API_KEY}`,
+        "Content-Type": "application/json"
+      };
+      options.apiKey = "not-needed"; // Backend.AI doesn't need Together's API key
+    } else if (process.env.HELICONE_API_KEY) {
+      options.baseURL = "https://together.helicone.ai/v1";
+      options.defaultHeaders = {
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-appname": "LlamaCoder",
+        "Helicone-Session-Id": message.chatId,
+        "Helicone-Session-Name": "LlamaCoder Chat",
+      };
+      options.apiKey = process.env.TOGETHER_API_KEY;
+    } else {
+      options.apiKey = process.env.TOGETHER_API_KEY;
+    }
+    
+    return options;
+  }
+
+  const options = getClientConfig(model);
   if (process.env.HELICONE_API_KEY) {
     options.baseURL = "https://together.helicone.ai/v1";
     options.defaultHeaders = {
@@ -235,15 +407,39 @@ export async function getNextCompletionStreamPromise(
       "Helicone-Session-Id": message.chatId,
       "Helicone-Session-Name": "LlamaCoder Chat",
     };
+    options.apiKey = process.env.TOGETHER_API_KEY;
+  } else {
+    options.apiKey = process.env.TOGETHER_API_KEY;
   }
 
-  const together = new Together(options);
+  if (model === process.env.MODEL_NAME) {
+    return {
+      streamPromise: new Promise<ReadableStream>(async (resolve) => {
+        const stream = await makeBackendAIRequest(messages.map((m) => ({ 
+          role: m.role, 
+          content: m.content 
+        })), true);
+        if (!stream) {
+          throw new Error("Failed to get stream from Backend.AI");
+        }
+        resolve(stream);
+      }),
+    };
+  }
+
+  const client = new Together({
+    apiKey: options.apiKey || "",
+    ...options
+  });
 
   return {
     streamPromise: new Promise<ReadableStream>(async (resolve) => {
-      const res = await together.chat.completions.create({
+      const res = await client.chat.completions.create({
         model,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: messages.map((message) => ({
+          role: message.role,
+          content: message.content || "",  // Provide default empty string if content is null
+        })),
         stream: true,
         temperature: 0.2,
         max_tokens: 9000,

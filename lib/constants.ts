@@ -1,5 +1,9 @@
 export const MODELS = [
   {
+    label: "Backend.AI Llama 3.2",
+    value: process.env.MODEL_NAME || "Llama-3.2-11B-Vision-Instruct",
+  },
+  {
     label: "Qwen 2.5 Coder 32B",
     value: "Qwen/Qwen2.5-Coder-32B-Instruct",
   },

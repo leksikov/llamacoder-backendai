@@ -1,12 +1,9 @@
 "use server";
 
-import { CodeSandbox } from "@codesandbox/sdk";
-import assert from "assert";
-
-assert.ok(typeof process.env.CSB_API_KEY === "string");
-const sdk = new CodeSandbox(process.env.CSB_API_KEY);
+import { getCodeSandboxClient } from "@/lib/codesandbox";
 
 export async function runPythonCode(code: string) {
+  const sdk = getCodeSandboxClient();
   const sandbox = await sdk.sandbox.create();
   const result = await sandbox.shells.python.run(code);
 
@@ -16,6 +13,7 @@ export async function runPythonCode(code: string) {
 }
 
 export async function runJavaScriptCode(code: string) {
+  const sdk = getCodeSandboxClient();
   const sandbox = await sdk.sandbox.create();
   const result = await sandbox.shells.js.run(code);
 
