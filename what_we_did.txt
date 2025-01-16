@@ -1,0 +1,14 @@
+At schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+Changed Postgresql to Sqlite:
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+
+npx prisma generate
+$ rm -rf prisma/migrations
+npx prisma migrate dev --name init
