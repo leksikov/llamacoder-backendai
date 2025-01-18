@@ -93,20 +93,24 @@ export default function Home() {
                 assert.ok(typeof model === "string");
                 assert.ok(quality === "high" || quality === "low");
 
-                const { chatId, lastMessageId } = await createChat(
-                  prompt,
-                  model,
-                  quality,
-                  screenshotUrl,
-                );
-                const { streamPromise } = await getNextCompletionStreamPromise(
-                  lastMessageId,
-                  model,
-                );
-                startTransition(() => {
+                try {
+                  const { chatId, lastMessageId } = await createChat(
+                    prompt,
+                    model,
+                    quality,
+                    screenshotUrl,
+                  );
+                  const { streamPromise } = await getNextCompletionStreamPromise(
+                    lastMessageId,
+                    model,
+                  );
+                  
                   setStreamPromise(streamPromise);
                   router.push(`/chats/${chatId}`);
-                });
+                } catch (error) {
+                  console.error("Error creating chat:", error);
+                  setStreamPromise(undefined);
+                }
               });
             }}
           >
