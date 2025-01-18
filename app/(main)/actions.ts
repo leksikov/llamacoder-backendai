@@ -50,125 +50,161 @@ export async function createChat(
   }
 
   function getClientConfig(forModel: string) {
-    const isModelBackendAI = forModel === process.env.MODEL_NAME;
-    let options: ConstructorParameters<typeof Together>[0] = {};
-    
-    if (isModelBackendAI) {
-      options.baseURL = process.env.BACKEND_AI_ENDPOINT;
-      options.defaultHeaders = {
-        "Authorization": `Bearer ${process.env.BACKEND_AI_API_KEY}`,
-        "Content-Type": "application/json"
-      };
-      options.apiKey = "not-needed"; // Backend.AI doesn't need Together's API key
-    } else if (process.env.HELICONE_API_KEY) {
-      options.baseURL = "https://together.helicone.ai/v1";
-      options.defaultHeaders = {
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-appname": "LlamaCoder",
-        "Helicone-Session-Id": chat.id,
-        "Helicone-Session-Name": "LlamaCoder Chat",
-      };
-      options.apiKey = process.env.TOGETHER_API_KEY;
-    } else {
-      options.apiKey = process.env.TOGETHER_API_KEY;
+    try {
+      console.log('getClientConfig called for model:', forModel);
+      const isModelBackendAI = forModel === process.env.MODEL_NAME;
+      console.log('isModelBackendAI:', isModelBackendAI);
+      
+      let options: ConstructorParameters<typeof Together>[0] = {};
+      
+      if (isModelBackendAI) {
+        console.log('Using Backend.AI config');
+        options.baseURL = process.env.BACKEND_AI_ENDPOINT;
+        options.defaultHeaders = {
+          "Authorization": `Bearer ${process.env.BACKEND_AI_API_KEY}`,
+          "Content-Type": "application/json"
+        };
+        options.apiKey = "not-needed"; // Backend.AI doesn't need Together's API key
+      } else if (process.env.HELICONE_API_KEY) {
+        console.log('Using Helicone config');
+        options.baseURL = "https://together.helicone.ai/v1";
+        options.defaultHeaders = {
+          "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+          "Helicone-Property-appname": "LlamaCoder",
+          "Helicone-Session-Id": chat.id,
+          "Helicone-Session-Name": "LlamaCoder Chat",
+        };
+        options.apiKey = process.env.TOGETHER_API_KEY;
+      } else {
+        console.log('Using default Together AI config');
+        options.apiKey = process.env.TOGETHER_API_KEY;
+      }
+      
+      console.log('Client config created successfully');
+      return options;
+    } catch (error) {
+      console.error('Error in getClientConfig:', error);
+      throw error;
     }
-    
-    return options;
   }
 
   async function fetchTitle() {
-    const modelToUse = model === process.env.MODEL_NAME! ? process.env.MODEL_NAME! : "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo";
-    
-    if (modelToUse === process.env.MODEL_NAME) {
-      const titleRes = await makeBackendAIRequest([
-        {
-          role: "system",
-          content: "You are a chatbot helping the user create a simple app or script, and your current job is to create a succinct title, maximum 3-5 words, for the chat given their initial prompt. Please return only the title.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ]);
-      return titleRes.choices[0].message.content;
-    }
+    try {
+      console.log('fetchTitle called');
+      const modelToUse = model === process.env.MODEL_NAME! ? process.env.MODEL_NAME! : "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo";
+      console.log('Using model:', modelToUse);
+      
+      if (modelToUse === process.env.MODEL_NAME) {
+        console.log('Making Backend.AI request for title');
+        const titleRes = await makeBackendAIRequest([
+          {
+            role: "system",
+            content: "You are a chatbot helping the user create a simple app or script, and your current job is to create a succinct title, maximum 3-5 words, for the chat given their initial prompt. Please return only the title.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ]);
+        return titleRes.choices[0].message.content;
+      }
 
-    const options = getClientConfig(modelToUse);
-    const client = new Together({
-      apiKey: options.apiKey || "",
-      ...options
-    });
-    
-    const responseForChatTitle = await client.chat.completions.create({
-      model: modelToUse,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a chatbot helping the user create a simple app or script, and your current job is to create a succinct title, maximum 3-5 words, for the chat given their initial prompt. Please return only the title.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-    const title = responseForChatTitle.choices[0].message?.content || prompt;
-    return title;
+      console.log('Getting Together AI client config');
+      const options = getClientConfig(modelToUse);
+      console.log('Initializing Together AI client');
+      const client = new Together({
+        apiKey: options.apiKey || "",
+        ...options
+      });
+      
+      console.log('Making Together AI request for title');
+      const responseForChatTitle = await client.chat.completions.create({
+        model: modelToUse,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a chatbot helping the user create a simple app or script, and your current job is to create a succinct title, maximum 3-5 words, for the chat given their initial prompt. Please return only the title.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      });
+      const title = responseForChatTitle.choices[0].message?.content || prompt;
+      console.log('Title generated:', title);
+      return title;
+    } catch (error) {
+      console.error('Error in fetchTitle:', error);
+      throw error;
+    }
   }
 
   async function fetchTopExample() {
-    const modelToUse = model === process.env.MODEL_NAME! ? process.env.MODEL_NAME! : "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo";
-    
-    if (modelToUse === process.env.MODEL_NAME) {
-      const exampleRes = await makeBackendAIRequest([
-        {
-          role: "system",
-          content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
+    try {
+      console.log('fetchTopExample called');
+      const modelToUse = model === process.env.MODEL_NAME! ? process.env.MODEL_NAME! : "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo";
+      console.log('Using model:', modelToUse);
+      
+      if (modelToUse === process.env.MODEL_NAME) {
+        console.log('Making Backend.AI request for top example');
+        const exampleRes = await makeBackendAIRequest([
+          {
+            role: "system",
+            content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
 
           - landing page
           - blog app
           - quiz app
           - pomodoro timer
           `,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ]);
-      return exampleRes.choices[0].message.content;
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ]);
+        return exampleRes.choices[0].message.content;
+      }
+
+      console.log('Getting Together AI client config');
+      const options = getClientConfig(modelToUse);
+      console.log('Initializing Together AI client');
+      const client = new Together({
+        apiKey: options.apiKey || "",
+        ...options
+      });
+      
+      console.log('Making Together AI request for top example');
+      const findSimilarExamples = await client.chat.completions.create({
+        model: modelToUse,
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
+
+          - landing page
+          - blog app
+          - quiz app
+          - pomodoro timer
+          `,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      });
+
+      const mostSimilarExample =
+        findSimilarExamples.choices[0].message?.content || "none";
+      console.log('Most similar example:', mostSimilarExample);
+      return mostSimilarExample;
+    } catch (error) {
+      console.error('Error in fetchTopExample:', error);
+      throw error;
     }
-
-    const options = getClientConfig(modelToUse);
-    const client = new Together({
-      apiKey: options.apiKey || "",
-      ...options
-    });
-    
-    const findSimilarExamples = await client.chat.completions.create({
-      model: modelToUse,
-      messages: [
-        {
-          role: "system",
-          content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
-
-          - landing page
-          - blog app
-          - quiz app
-          - pomodoro timer
-          `,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
-    const mostSimilarExample =
-      findSimilarExamples.choices[0].message?.content || "none";
-    return mostSimilarExample;
   }
 
   const [title, mostSimilarExample] = await Promise.all([
@@ -189,28 +225,35 @@ export async function createChat(
       ...options
     });
     
-    const screenshotResponse = await client.chat.completions.create({
-      model: modelToUse,
-      temperature: 0.2,
-      max_tokens: 1000,
-      messages: [
-        {
-          role: "user",
-          // @ts-expect-error Need to fix the TypeScript library type
-          content: [
-            { type: "text", text: screenshotToCodePrompt },
-            {
-              type: "image_url",
-              image_url: {
-                url: screenshotUrl,
+    try {
+      console.log('Making Together AI request for screenshot description');
+      const screenshotResponse = await client.chat.completions.create({
+        model: modelToUse,
+        temperature: 0.2,
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            // @ts-expect-error Need to fix the TypeScript library type
+            content: [
+              { type: "text", text: screenshotToCodePrompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: screenshotUrl,
+                },
               },
-            },
-          ],
-        },
-      ],
-    });
+            ],
+          },
+        ],
+      });
 
-    fullScreenshotDescription = screenshotResponse.choices[0].message?.content;
+      fullScreenshotDescription = screenshotResponse.choices[0].message?.content;
+      console.log('Screenshot description generated:', fullScreenshotDescription);
+    } catch (error) {
+      console.error('Error in screenshot description generation:', error);
+      throw error;
+    }
   }
 
   let userMessage: string;
@@ -218,6 +261,7 @@ export async function createChat(
     const modelToUse = model;
     
     if (modelToUse === process.env.MODEL_NAME) {
+      console.log('Making Backend.AI request for high quality message');
       const initialRes = await makeBackendAIRequest([
         {
           role: "system",
@@ -230,31 +274,40 @@ export async function createChat(
       ]);
       userMessage = initialRes.choices[0].message.content;
     } else {
+      console.log('Getting Together AI client config');
       const options = getClientConfig(modelToUse);
+      console.log('Initializing Together AI client');
       const client = new Together({
         apiKey: options.apiKey || "",
         ...options
       });
       
-      let initialRes = await client.chat.completions.create({
-        model: modelToUse,
-        messages: [
-          {
-            role: "system",
-            content: softwareArchitectPrompt,
-          },
-          {
-            role: "user",
-            content: fullScreenshotDescription
-              ? fullScreenshotDescription + prompt
-              : prompt,
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 3000,
-      });
+      try {
+        console.log('Making Together AI request for high quality message');
+        let initialRes = await client.chat.completions.create({
+          model: modelToUse,
+          messages: [
+            {
+              role: "system",
+              content: softwareArchitectPrompt,
+            },
+            {
+              role: "user",
+              content: fullScreenshotDescription
+                ? fullScreenshotDescription + prompt
+                : prompt,
+            },
+          ],
+          temperature: 0.2,
+          max_tokens: 3000,
+        });
 
-      userMessage = initialRes.choices[0].message?.content ?? prompt;
+        userMessage = initialRes.choices[0].message?.content ?? prompt;
+        console.log('High quality message generated:', userMessage);
+      } catch (error) {
+        console.error('Error in high quality message generation:', error);
+        throw error;
+      }
     }
   } else if (fullScreenshotDescription) {
     userMessage =
@@ -372,30 +425,42 @@ export async function getNextCompletionStreamPromise(
   }
 
   function getClientConfig(forModel: string) {
-    const isModelBackendAI = forModel === process.env.MODEL_NAME;
-    let options: ConstructorParameters<typeof Together>[0] = {};
-    
-    if (isModelBackendAI) {
-      options.baseURL = process.env.BACKEND_AI_ENDPOINT;
-      options.defaultHeaders = {
-        "Authorization": `Bearer ${process.env.BACKEND_AI_API_KEY}`,
-        "Content-Type": "application/json"
-      };
-      options.apiKey = "not-needed"; // Backend.AI doesn't need Together's API key
-    } else if (process.env.HELICONE_API_KEY) {
-      options.baseURL = "https://together.helicone.ai/v1";
-      options.defaultHeaders = {
-        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-        "Helicone-Property-appname": "LlamaCoder",
-        "Helicone-Session-Id": message.chatId,
-        "Helicone-Session-Name": "LlamaCoder Chat",
-      };
-      options.apiKey = process.env.TOGETHER_API_KEY;
-    } else {
-      options.apiKey = process.env.TOGETHER_API_KEY;
+    try {
+      console.log('getClientConfig called for model:', forModel);
+      const isModelBackendAI = forModel === process.env.MODEL_NAME;
+      console.log('isModelBackendAI:', isModelBackendAI);
+      
+      let options: ConstructorParameters<typeof Together>[0] = {};
+      
+      if (isModelBackendAI) {
+        console.log('Using Backend.AI config');
+        options.baseURL = process.env.BACKEND_AI_ENDPOINT;
+        options.defaultHeaders = {
+          "Authorization": `Bearer ${process.env.BACKEND_AI_API_KEY}`,
+          "Content-Type": "application/json"
+        };
+        options.apiKey = "not-needed"; // Backend.AI doesn't need Together's API key
+      } else if (process.env.HELICONE_API_KEY) {
+        console.log('Using Helicone config');
+        options.baseURL = "https://together.helicone.ai/v1";
+        options.defaultHeaders = {
+          "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+          "Helicone-Property-appname": "LlamaCoder",
+          "Helicone-Session-Id": message.chatId,
+          "Helicone-Session-Name": "LlamaCoder Chat",
+        };
+        options.apiKey = process.env.TOGETHER_API_KEY;
+      } else {
+        console.log('Using default Together AI config');
+        options.apiKey = process.env.TOGETHER_API_KEY;
+      }
+      
+      console.log('Client config created successfully');
+      return options;
+    } catch (error) {
+      console.error('Error in getClientConfig:', error);
+      throw error;
     }
-    
-    return options;
   }
 
   const options = getClientConfig(model);
@@ -427,25 +492,32 @@ export async function getNextCompletionStreamPromise(
     };
   }
 
-  const client = new Together({
-    apiKey: options.apiKey || "",
-    ...options
-  });
+  try {
+    console.log('Initializing Together AI client');
+    const client = new Together({
+      apiKey: options.apiKey || "",
+      ...options
+    });
+    
+    return {
+      streamPromise: new Promise<ReadableStream>(async (resolve) => {
+        console.log('Making Together AI request for completion stream');
+        const res = await client.chat.completions.create({
+          model,
+          messages: messages.map((message) => ({
+            role: message.role,
+            content: message.content || "",  // Provide default empty string if content is null
+          })),
+          stream: true,
+          temperature: 0.2,
+          max_tokens: 9000,
+        });
 
-  return {
-    streamPromise: new Promise<ReadableStream>(async (resolve) => {
-      const res = await client.chat.completions.create({
-        model,
-        messages: messages.map((message) => ({
-          role: message.role,
-          content: message.content || "",  // Provide default empty string if content is null
-        })),
-        stream: true,
-        temperature: 0.2,
-        max_tokens: 9000,
-      });
-
-      resolve(res.toReadableStream());
-    }),
-  };
+        resolve(res.toReadableStream());
+      }),
+    };
+  } catch (error) {
+    console.error('Error in getNextCompletionStreamPromise:', error);
+    throw error;
+  }
 }
