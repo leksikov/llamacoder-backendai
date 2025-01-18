@@ -7,12 +7,13 @@ export default function Layout({
   children: React.ReactNode;
 }>) {
   return (
-    <Providers>
-      <body className="flex min-h-full flex-col bg-gray-100 text-gray-900 antialiased">
-        {children}
-
-        <Toaster />
-      </body>
-    </Providers>
+    <html lang="en" className="h-full">
+      <Providers>
+        <body className="flex min-h-full flex-col bg-gray-100 text-gray-900 antialiased">
+          {children}
+          <Toaster />
+        </body>
+      </Providers>
+    </html>
   );
 }
