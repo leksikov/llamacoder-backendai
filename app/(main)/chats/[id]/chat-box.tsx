@@ -1,13 +1,14 @@
 "use client";
 
-import ArrowRightIcon from "@/components/icons/arrow-right";
-import Spinner from "@/components/spinner";
-import assert from "assert";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useTransition } from "react";
+import { useEffect, useRef, useTransition, use } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { createMessage, getNextCompletionStreamPromise } from "../../actions";
 import { type Chat } from "./page";
+import { Context } from "../../providers";
+import ArrowRightIcon from "@/components/icons/arrow-right";
+import Spinner from "@/components/spinner";
+import assert from "assert";
 
 export default function ChatBox({
   chat,
@@ -20,7 +21,8 @@ export default function ChatBox({
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const disabled = isPending || isStreaming;
+  const context = use(Context);
+  const disabled = isPending || isStreaming || context.isStreaming;
   const didFocusOnce = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -41,17 +43,22 @@ export default function ChatBox({
         className="relative flex w-full"
         action={async (formData) => {
           startTransition(async () => {
-            const prompt = formData.get("prompt");
-            assert.ok(typeof prompt === "string");
+            try {
+              const prompt = formData.get("prompt");
+              assert.ok(typeof prompt === "string");
 
-            const message = await createMessage(chat.id, prompt, "user");
-            const { streamPromise } = await getNextCompletionStreamPromise(
-              message.id,
-              chat.model,
-            );
-            onNewStreamPromise(streamPromise);
+              const message = await createMessage(chat.id, prompt, "user");
+              const { streamPromise } = await getNextCompletionStreamPromise(
+                message.id,
+                chat.model,
+              );
+              onNewStreamPromise(streamPromise);
 
-            router.refresh();
+              router.refresh();
+            } catch (error) {
+              console.error("Error submitting message:", error);
+              context.resetStream();
+            }
           });
         }}
       >
