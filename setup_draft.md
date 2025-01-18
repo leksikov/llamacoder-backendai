@@ -12,3 +12,7 @@ datasource db {
 npx prisma generate
 $ rm -rf prisma/migrations
 npx prisma migrate dev --name init
+
+npm install crypto-browserify --save
+npm install stream-browserify --save
+npm install buffer util assert --save
