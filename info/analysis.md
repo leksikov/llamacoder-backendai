@@ -15,6 +15,10 @@ LlamaCoder is an open-source project that leverages Llama 3 to generate small ap
   - Together AI for LLM inference
   - Backend.AI for alternative LLM endpoint
 - **State Management**: React Context with custom providers
+- **Type Safety**: 
+  - TypeScript with strict mode
+  - Custom assertion utilities
+  - Centralized type definitions
 - **Analytics**: 
   - Helicone for observability
   - Plausible for website analytics
@@ -39,6 +43,8 @@ LlamaCoder is an open-source project that leverages Llama 3 to generate small ap
 - `/components`: Reusable React components
 - `/hooks`: Custom React hooks
 - `/lib`: Utility functions and shared libraries
+  - `/assertions.ts`: Type-safe runtime assertions
+- `/types`: TypeScript type definitions
 - `/prisma`: Database schema and migrations
 - `/public`: Static assets
 
@@ -49,6 +55,23 @@ LlamaCoder is an open-source project that leverages Llama 3 to generate small ap
 4. Modern UI Components
 5. Robust Stream Processing
 6. Global State Management
+7. Type-Safe Runtime Validation
+
+### Type Safety Implementation
+1. **Centralized Type Definitions**
+   - Chat and Message interfaces in `/types/index.ts`
+   - Strict type checking for all components
+   - Path aliases for consistent imports
+
+2. **Runtime Assertions**
+   - Custom assertion utility in `/lib/assertions.ts`
+   - Type-safe runtime checks
+   - Detailed error messages for debugging
+
+3. **Null Safety**
+   - Explicit null checks in critical paths
+   - Type guards for optional properties
+   - Proper error handling for undefined states
 
 ## Recent Improvements
 

@@ -24,10 +24,14 @@ Add Backend.AI LLM endpoints as an alternative provider while:
 ### 1. Provider Selection & Configuration
 ```typescript
 // actions.ts
-function getClientConfig(forModel: string) {
-  const isModelBackendAI = forModel === process.env.MODEL_NAME;
+function getClientConfig(model: string, message: Message) {
+  if (!message) {
+    throw new Error("Message not found");
+  }
   
+  const isModelBackendAI = model.startsWith('phi');
   let options = {};
+  
   if (isModelBackendAI) {
     options.baseURL = process.env.BACKEND_AI_ENDPOINT;
     options.defaultHeaders = {
@@ -38,28 +42,74 @@ function getClientConfig(forModel: string) {
     // Existing Together AI logic
     if (process.env.HELICONE_API_KEY) {
       options.baseURL = "https://together.helicone.ai/v1";
-      // ... existing Helicone headers
+      options.defaultHeaders = {
+        "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+        "Helicone-Property-appname": "LlamaCoder",
+        "Helicone-Session-Id": message.chatId,
+        "Helicone-Session-Name": "LlamaCoder Chat",
+      };
     }
   }
   return options;
 }
 ```
 
-### 2. Stream Processing Implementation
+### 2. Type Safety Implementation
+```typescript
+// types/index.ts
+export interface Message {
+  id: string;
+  chatId: string;
+  content: string;
+  role: "system" | "user" | "assistant";
+  position: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Chat {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+  updatedAt: Date;
+  quality: "high" | "low";
+  model: string;
+  prompt: string;
+  llamaCoderVersion: string;
+  shadcn: boolean;
+}
+
+// lib/assertions.ts
+export function assert(condition: any, message: string): asserts condition {
+  if (!condition) {
+    console.error('Assertion failed:', message);
+    throw new Error(message);
+  }
+}
+```
+
+### 3. Stream Processing Implementation
 ```typescript
 async function* readStreamByChunks(stream: ReadableStream) {
+  assert(stream instanceof ReadableStream, 'Stream must be a ReadableStream');
   const reader = stream.getReader();
   let buffer = '';
+  
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       
+      assert(value instanceof Uint8Array || value === undefined, 
+        'Stream value must be Uint8Array or undefined');
       buffer += new TextDecoder().decode(value);
+      
       const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // Keep incomplete chunks
+      buffer = lines.pop() || '';
       
       for (const line of lines) {
+        if (!line.trim()) continue;
         if (line.startsWith('data: ')) {
           const data = line.slice(5).trim();
           if (data === '[DONE]') return;
@@ -70,11 +120,7 @@ async function* readStreamByChunks(stream: ReadableStream) {
               yield parsed.choices[0].delta.content;
             }
           } catch (e) {
-            // Fallback content extraction for malformed JSON
-            const contentMatch = data.match(/"content":\s*"([^"]*)"/)
-            if (contentMatch) {
-              yield contentMatch[1];
-            }
+            console.warn('JSON parsing failed:', e);
           }
         }
       }
@@ -83,21 +129,6 @@ async function* readStreamByChunks(stream: ReadableStream) {
     reader.releaseLock();
   }
 }
-```
-
-### 3. State Management
-```typescript
-// providers.tsx
-export const Context = createContext<{
-  streamPromise?: Promise<ReadableStream>;
-  isStreaming: boolean;
-  setStreamPromise: (v: Promise<ReadableStream> | undefined) => void;
-  resetStream: () => void;
-}>({
-  isStreaming: false,
-  setStreamPromise: () => {},
-  resetStream: () => {},
-});
 ```
 
 ### 4. Code Execution Strategy
