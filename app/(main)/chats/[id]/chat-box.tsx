@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useTransition, use } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { createMessage, getNextCompletionStreamPromise } from "../../actions";
-import { type Chat } from "./page";
+import type { Chat } from "@/types";
 import { Context } from "../../providers";
 import ArrowRightIcon from "@/components/icons/arrow-right";
 import Spinner from "@/components/spinner";
-import assert from "assert";
+import { assert } from "@/lib/assertions";
 
 export default function ChatBox({
   chat,
@@ -47,11 +47,21 @@ export default function ChatBox({
               const prompt = formData.get("prompt");
               assert.ok(typeof prompt === "string");
 
+              console.log('Creating new message:', {
+                chatId: chat.id,
+                prompt,
+                model: chat.model
+              });
+
               const message = await createMessage(chat.id, prompt, "user");
+              console.log('Message created:', message);
+
               const { streamPromise } = await getNextCompletionStreamPromise(
                 message.id,
                 chat.model,
               );
+              console.log('Stream promise received');
+              
               onNewStreamPromise(streamPromise);
 
               router.refresh();

@@ -1,16 +1,17 @@
 "use client";
 
+import { useState } from "react";
+import type { Chat, Message } from "@/types";
+import { assert } from "@/lib/assertions";
+import { extractFirstCodeBlock, splitByFirstCodeFence } from "@/lib/utils";
+import { StickToBottom } from "use-stick-to-bottom";
+import SyntaxHighlighter from "@/components/syntax-highlighter";
+import { Share } from "./share";
 import CodeRunner from "@/components/code-runner";
 import ChevronLeftIcon from "@/components/icons/chevron-left";
 import ChevronRightIcon from "@/components/icons/chevron-right";
 import CloseIcon from "@/components/icons/close-icon";
 import RefreshIcon from "@/components/icons/refresh";
-import SyntaxHighlighter from "@/components/syntax-highlighter";
-import { extractFirstCodeBlock, splitByFirstCodeFence } from "@/lib/utils";
-import { useState } from "react";
-import type { Chat, Message } from "./page";
-import { Share } from "./share";
-import { StickToBottom } from "use-stick-to-bottom";
 
 export default function CodeViewer({
   chat,
@@ -29,6 +30,12 @@ export default function CodeViewer({
   onTabChange: (v: "code" | "preview") => void;
   onClose: () => void;
 }) {
+  assert(chat?.messages, 'Chat must have messages array');
+  assert(typeof streamText === 'string', 'Stream text must be a string');
+  assert(typeof onMessageChange === 'function', 'onMessageChange must be a function');
+  assert(typeof onTabChange === 'function', 'onTabChange must be a function');
+  assert(typeof onClose === 'function', 'onClose must be a function');
+
   const app = message ? extractFirstCodeBlock(message.content) : undefined;
   const streamAppParts = splitByFirstCodeFence(streamText);
   const streamApp = streamAppParts.find(
@@ -38,6 +45,36 @@ export default function CodeViewer({
   const streamAppIsGenerating = streamAppParts.some(
     (p) => p.type === "first-code-fence-generating",
   );
+
+  if (streamApp) {
+    assert(streamApp.content !== undefined, 'Stream app must have content');
+    assert(streamApp.language !== undefined, 'Stream app must have language');
+  }
+
+  if (app) {
+    assert(app.code !== undefined, 'App must have code');
+    assert(app.language !== undefined, 'App must have language');
+  }
+
+  console.log('CodeViewer state:', {
+    hasMessage: !!message,
+    messageId: message?.id,
+    hasApp: !!app,
+    hasStreamApp: !!streamApp,
+    code: streamApp ? streamApp.content : app?.code || "",
+    language: streamApp ? streamApp.language : app?.language || "",
+    layout: ["python", "ts", "js", "javascript", "typescript"].includes(
+      streamApp ? streamApp.language : app?.language || "",
+    )
+      ? "two-up"
+      : "tabbed",
+    currentVersion: streamApp
+      ? chat.messages.length
+      : message
+        ? chat.messages.map((m) => m.id).indexOf(message.id)
+        : 1,
+    isGenerating: streamAppIsGenerating
+  });
 
   const code = streamApp ? streamApp.content : app?.code || "";
   const language = streamApp ? streamApp.language : app?.language || "";

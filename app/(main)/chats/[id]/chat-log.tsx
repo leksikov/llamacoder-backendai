@@ -1,6 +1,7 @@
 "use client";
 
-import type { Chat, Message } from "./page";
+import type { Chat, Message } from "@/types";
+import { assert } from "@/lib/assertions";
 import ArrowLeftIcon from "@/components/icons/arrow-left";
 import { splitByFirstCodeFence } from "@/lib/utils";
 import Markdown from "react-markdown";
@@ -17,7 +18,12 @@ export default function ChatLog({
   streamText: string;
   onMessageClick: (v: Message) => void;
 }) {
-  const assistantMessages = chat.messages.filter((m) => m.role === "assistant");
+  assert(chat?.messages, 'Chat must have messages array');
+  assert(typeof streamText === 'string', 'Stream text must be a string');
+  assert(typeof onMessageClick === 'function', 'onMessageClick must be a function');
+  
+  const assistantMessages = chat.messages.filter((m: Message) => m.role === "assistant");
+  assert(Array.isArray(assistantMessages), 'Assistant messages must be an array');
 
   return (
     <StickToBottom
@@ -28,7 +34,7 @@ export default function ChatLog({
       <StickToBottom.Content className="mx-auto flex w-full max-w-prose flex-col gap-8 p-8">
         <UserMessage content={chat.prompt} />
 
-        {chat.messages.slice(2).map((message) => (
+        {chat.messages.slice(2).map((message: Message) => (
           <div key={message.id}>
             {message.role === "user" ? (
               <UserMessage content={message.content} />
@@ -36,7 +42,7 @@ export default function ChatLog({
               <AssistantMessage
                 content={message.content}
                 version={
-                  assistantMessages.map((m) => m.id).indexOf(message.id) + 1
+                  assistantMessages.map((m: Message) => m.id).indexOf(message.id) + 1
                 }
                 message={message}
                 isActive={!streamText && activeMessage?.id === message.id}
@@ -80,7 +86,19 @@ function AssistantMessage({
   isActive?: boolean;
   onMessageClick?: (v: Message) => void;
 }) {
+  assert(typeof content === 'string', 'Content must be a string');
+  assert(typeof version === 'number', 'Version must be a number');
+  assert(version > 0, 'Version must be positive');
+  assert(typeof onMessageClick === 'function', 'onMessageClick must be a function');
+  
+  if (message) {
+    assert(message.id, 'Message must have an ID');
+    assert(message.content, 'Message must have content');
+    assert(message.role, 'Message must have a role');
+  }
+  
   const parts = splitByFirstCodeFence(content);
+  assert(Array.isArray(parts), 'Parts must be an array');
 
   return (
     <div>
@@ -108,7 +126,15 @@ function AssistantMessage({
             <div className="my-4">
               <button
                 className={`${isActive ? "bg-white" : "bg-gray-300 hover:border-gray-400 hover:bg-gray-400"} inline-flex w-full items-center gap-2 rounded-lg border-4 border-gray-300 p-1.5`}
-                onClick={() => onMessageClick(message)}
+                onClick={() => {
+                  console.log('Message clicked:', {
+                    messageId: message.id,
+                    content: message.content,
+                    isActive,
+                    hasCode: message.content.includes('```')
+                  });
+                  onMessageClick(message);
+                }}
               >
                 <div
                   className={`${isActive ? "bg-gray-300" : "bg-gray-200"} flex size-8 items-center justify-center rounded font-bold`}

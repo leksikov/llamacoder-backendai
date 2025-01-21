@@ -20,6 +20,12 @@ export default function CodeViewerLayout({
   onClose: () => void;
 }) {
   const isMobile = useMediaQuery("(max-width: 1023px)");
+  
+  console.log('CodeViewerLayout state:', {
+    isMobile,
+    isShowing,
+    hasChildren: !!children
+  });
 
   return (
     <>

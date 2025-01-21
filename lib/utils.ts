@@ -2,6 +2,12 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function extractFirstCodeBlock(input: string) {
+  console.log('Attempting to extract code block from:', {
+    inputLength: input.length,
+    hasCodeFence: input.includes('```'),
+    firstFenceIndex: input.indexOf('```')
+  });
+
   // 1) We use a more general pattern for the code fence:
   //    - ^```([^\n]*) captures everything after the triple backticks up to the newline.
   //    - ([\s\S]*?) captures the *body* of the code block (non-greedy).
@@ -14,6 +20,12 @@ export function extractFirstCodeBlock(input: string) {
     const fenceTag = match[1] || ""; // e.g. "tsx{filename=Calculator.tsx}"
     const code = match[2]; // The actual code block content
     const fullMatch = match[0]; // Entire matched string including backticks
+
+    console.log('Code block found:', {
+      fenceTag,
+      codeLength: code.length,
+      fullMatchLength: fullMatch.length
+    });
 
     // We'll parse the fenceTag to extract optional language and filename
     let language: string | null = null;

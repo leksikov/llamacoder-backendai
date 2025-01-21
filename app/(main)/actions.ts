@@ -424,10 +424,12 @@ export async function getNextCompletionStreamPromise(
     return stream ? response.body : response.json();
   }
 
-  function getClientConfig(forModel: string) {
+  function getClientConfig(model: string, message: any) {
     try {
-      console.log('getClientConfig called for model:', forModel);
-      const isModelBackendAI = forModel === process.env.MODEL_NAME;
+      if (!message) {
+        throw new Error("Message not found");
+      }
+      const isModelBackendAI = model.startsWith('phi');
       console.log('isModelBackendAI:', isModelBackendAI);
       
       let options: ConstructorParameters<typeof Together>[0] = {};
@@ -463,7 +465,7 @@ export async function getNextCompletionStreamPromise(
     }
   }
 
-  const options = getClientConfig(model);
+  const options = getClientConfig(model, message);
   if (process.env.HELICONE_API_KEY) {
     options.baseURL = "https://together.helicone.ai/v1";
     options.defaultHeaders = {
