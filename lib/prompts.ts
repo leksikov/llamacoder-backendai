@@ -105,12 +105,7 @@ export function getMainCodingPrompt(mostSimilarExample: string) {
   `;
 
   if (mostSimilarExample !== "none") {
-    assert.ok(
-      mostSimilarExample === "landing page" ||
-        mostSimilarExample === "blog app" ||
-        mostSimilarExample === "quiz app" ||
-        mostSimilarExample === "pomodoro timer",
-    );
+    // If it's not "none", just use it as is - the examples will handle any unknown cases
     systemPrompt += `
     Here another example (thats missing explanations and is just code):
 

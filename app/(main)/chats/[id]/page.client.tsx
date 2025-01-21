@@ -50,19 +50,31 @@ async function* readStreamByChunks(stream: ReadableStream) {
           
           try {
             const parsed = JSON.parse(data);
-            if (parsed?.choices?.[0]?.delta?.content) {
+            const content = parsed?.choices?.[0]?.delta?.content || 
+                          parsed?.choices?.[0]?.message?.content ||
+                          parsed?.content;
+            if (content) {
               console.log('Content chunk found:', {
-                contentLength: parsed.choices[0].delta.content.length,
-                hasCodeFence: parsed.choices[0].delta.content.includes('```')
+                contentLength: content.length,
+                hasCodeFence: content.includes('```')
               });
-              yield parsed.choices[0].delta.content;
+              yield content;
             }
           } catch (e) {
             console.warn('JSON parsing failed, attempting direct content extraction:', e);
-            const contentMatch = data.match(/"content":\s*"([^"]*)"/)
-            if (contentMatch) {
-              console.log('Content extracted from regex');
-              yield contentMatch[1];
+            const patterns = [
+              /"content":\s*"([^"]*)"/, // Standard JSON format
+              /data:\s*(.+)$/, // SSE format
+              /"delta":\s*{\s*"content":\s*"([^"]*)"/ // OpenAI format
+            ];
+            
+            for (const pattern of patterns) {
+              const match = data.match(pattern);
+              if (match) {
+                console.log('Content extracted using pattern:', pattern);
+                yield match[1];
+                break;
+              }
             }
           }
         }

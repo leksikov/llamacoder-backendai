@@ -45,7 +45,7 @@ export default function ChatBox({
           startTransition(async () => {
             try {
               const prompt = formData.get("prompt");
-              assert.ok(typeof prompt === "string");
+              assert(typeof prompt === "string", "Prompt must be a string");
 
               console.log('Creating new message:', {
                 chatId: chat.id,

@@ -9,6 +9,7 @@ import {
   screenshotToCodePrompt,
   softwareArchitectPrompt,
 } from "@/lib/prompts";
+import { examples } from "@/lib/shadcn-examples";
 
 export async function createChat(
   prompt: string,
@@ -152,20 +153,24 @@ export async function createChat(
         const exampleRes = await makeBackendAIRequest([
           {
             role: "system",
-            content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
+            content: `You are a matching bot. Your ONLY job is to match the user's app request to the most similar example from this list. You must ONLY respond with ONE of these exact strings, nothing else:
 
-          - landing page
-          - blog app
-          - quiz app
-          - pomodoro timer
-          `,
+- landing page
+- blog app
+- calculator app
+- quiz app
+- pomodoro timer
+- none
+
+If the request doesn't match any example well, respond with "none". DO NOT provide explanations or ask questions.`,
           },
           {
             role: "user",
             content: prompt,
           },
         ]);
-        return exampleRes.choices[0].message.content;
+        const content = exampleRes.choices[0].message.content.trim().toLowerCase();
+        return content === "none" || content in examples ? content : "none";
       }
 
       console.log('Getting Together AI client config');
@@ -182,13 +187,16 @@ export async function createChat(
         messages: [
           {
             role: "system",
-            content: `You are a helpful bot. Given a request for building an app, you match it to the most similar example provided. If the request is NOT similar to any of the provided examples, return "none". Here is the list of examples, ONLY reply with one of them OR "none":
+            content: `You are a matching bot. Your ONLY job is to match the user's app request to the most similar example from this list. You must ONLY respond with ONE of these exact strings, nothing else:
 
-          - landing page
-          - blog app
-          - quiz app
-          - pomodoro timer
-          `,
+- landing page
+- blog app
+- calculator app
+- quiz app
+- pomodoro timer
+- none
+
+If the request doesn't match any example well, respond with "none". DO NOT provide explanations or ask questions.`,
           },
           {
             role: "user",
@@ -198,9 +206,9 @@ export async function createChat(
       });
 
       const mostSimilarExample =
-        findSimilarExamples.choices[0].message?.content || "none";
+        findSimilarExamples.choices[0].message?.content?.trim().toLowerCase() || "none";
       console.log('Most similar example:', mostSimilarExample);
-      return mostSimilarExample;
+      return mostSimilarExample === "none" || mostSimilarExample in examples ? mostSimilarExample : "none";
     } catch (error) {
       console.error('Error in fetchTopExample:', error);
       throw error;
