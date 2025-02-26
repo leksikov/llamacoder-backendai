@@ -1,7 +1,7 @@
 export const MODELS = [
   {
-    label: "Backend.AI - Microsoft Phi-4",
-    value: "phi-4",
+    label: "Backend.AI - Microsoft Llama-3.2-11B-Vision-Instruct",
+    value: "Llama-3.2-11B-Vision-Instruct",
   },
   {
     label: "Qwen 2.5 Coder 32B",

@@ -29,7 +29,7 @@ function getClientConfig(model: string, message: Message) {
     throw new Error("Message not found");
   }
   
-  const isModelBackendAI = model.startsWith('phi');
+  const isModelBackendAI = model.startsWith('llama');
   let options = {};
   
   if (isModelBackendAI) {

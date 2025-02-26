@@ -25,6 +25,7 @@ export default function ChatBox({
   const disabled = isPending || isStreaming || context.isStreaming;
   const didFocusOnce = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -40,6 +41,7 @@ export default function ChatBox({
   return (
     <div className="mx-auto mb-5 flex w-full max-w-prose shrink-0 px-8">
       <form
+        ref={formRef}
         className="relative flex w-full"
         action={async (formData) => {
           startTransition(async () => {
@@ -50,7 +52,9 @@ export default function ChatBox({
               console.log('Creating new message:', {
                 chatId: chat.id,
                 prompt,
-                model: chat.model
+                model: chat.model,
+                isPending,
+                isStreaming: context.isStreaming
               });
 
               const message = await createMessage(chat.id, prompt, "user");
@@ -63,6 +67,10 @@ export default function ChatBox({
               console.log('Stream promise received');
               
               onNewStreamPromise(streamPromise);
+
+              if (formRef.current) {
+                formRef.current.reset();
+              }
 
               router.refresh();
             } catch (error) {

@@ -27,20 +27,24 @@ export default function Providers({ children }: { children: ReactNode }) {
     
     console.log('Stream promise state change:', {
       hasPromise: !!promise,
-      currentIsStreaming: isStreaming
+      currentIsStreaming: isStreaming,
+      action: promise ? 'setting' : 'clearing'
     });
     
-    setStreamPromiseState(promise);
-    setIsStreaming(!!promise);
+    if (!promise) {
+      setStreamPromiseState(undefined);
+      setIsStreaming(false);
+    } else {
+      setStreamPromiseState(promise);
+      setIsStreaming(true);
+    }
   }, [isStreaming]);
 
   const resetStream = useCallback(() => {
     console.log('Resetting stream state');
-    assert(!isStreaming || streamPromise, 'Cannot reset stream when streaming without a promise');
-    
     setStreamPromiseState(undefined);
     setIsStreaming(false);
-  }, [isStreaming, streamPromise]);
+  }, []);
 
   return (
     <Context.Provider value={{ 

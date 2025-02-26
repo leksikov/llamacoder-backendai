@@ -115,20 +115,30 @@ export default function PageClient({ chat }: { chat: Chat }) {
     console.log('Starting stream handling');
     isHandlingStreamRef.current = true;
     let isMounted = true;
+    let reader: ReadableStreamDefaultReader | undefined;
 
     (async () => {
       try {
         console.log('Awaiting stream promise');
         const stream = await streamPromise;
         console.log('Stream received');
+        reader = stream.getReader();
         let didPushToCode = false;
         let didPushToPreview = false;
 
-        for await (const chunk of readStreamByChunks(stream)) {
-          if (!isMounted) {
-            console.log('Component unmounted, breaking stream processing');
+        while (isMounted) {
+          const { done, value } = await reader.read();
+          if (done) {
+            console.log('Stream complete');
             break;
           }
+          
+          if (!isMounted) {
+            console.log('Component unmounted during read, breaking');
+            break;
+          }
+
+          const chunk = new TextDecoder().decode(value);
           console.log('Processing chunk:', {
             chunkLength: chunk.length,
             hasCodeFence: chunk.includes('```'),
@@ -151,19 +161,30 @@ export default function PageClient({ chat }: { chat: Chat }) {
       } catch (error) {
         console.error("Error processing stream:", error);
       } finally {
-        if (isMounted) {
-          console.log('Stream processing complete');
-          setStreamPromise(undefined);
-          isHandlingStreamRef.current = false;
+        if (reader) {
+          try {
+            await reader.cancel();
+          } catch (e) {
+            console.warn('Error cancelling reader:', e);
+          }
         }
+        
+        // Always reset states at the end
+        console.log('Stream processing complete, resetting states');
+        setStreamPromise(undefined);
+        context.resetStream();
+        isHandlingStreamRef.current = false;
       }
     })();
 
     return () => {
-      console.log('Cleanup: Setting isMounted to false');
+      console.log('Cleanup: cancelling stream processing');
       isMounted = false;
+      if (reader) {
+        reader.cancel().catch(e => console.warn('Error during cleanup:', e));
+      }
     };
-  }, [streamPromise]);
+  }, [streamPromise, context, setStreamPromise]);
 
   return (
     <div className="h-dvh">

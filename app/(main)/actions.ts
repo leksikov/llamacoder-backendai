@@ -437,7 +437,7 @@ export async function getNextCompletionStreamPromise(
       if (!message) {
         throw new Error("Message not found");
       }
-      const isModelBackendAI = model.startsWith('phi');
+      const isModelBackendAI = model.startsWith('Llama');
       console.log('isModelBackendAI:', isModelBackendAI);
       
       let options: ConstructorParameters<typeof Together>[0] = {};
