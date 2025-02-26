@@ -141,6 +141,35 @@ export default function PageClient({ chat }: { chat: Chat }) {
                 setActiveMessage(undefined);
                 setIsShowingCodeViewer(false);
               }}
+              onRequestFix={(error: string) => {
+                startTransition(async () => {
+                  let newMessageText = `The code is not working. Can you fix it? Here's the error:\n\n`;
+                  newMessageText += error.trimStart();
+                  const message = await createMessage(
+                    chat.id,
+                    newMessageText,
+                    "user",
+                  );
+
+                  const streamPromise = fetch(
+                    "/api/get-next-completion-stream-promise",
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        messageId: message.id,
+                        model: chat.model,
+                      }),
+                    },
+                  ).then((res) => {
+                    if (!res.body) {
+                      throw new Error("No body on response");
+                    }
+                    return res.body;
+                  });
+                  setStreamPromise(streamPromise);
+                  router.refresh();
+                });
+              }}
             />
           )}
         </CodeViewerLayout>

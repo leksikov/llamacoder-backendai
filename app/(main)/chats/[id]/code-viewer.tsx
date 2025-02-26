@@ -1,16 +1,25 @@
 "use client";
 
-import CodeRunner from "@/components/code-runner";
 import ChevronLeftIcon from "@/components/icons/chevron-left";
 import ChevronRightIcon from "@/components/icons/chevron-right";
 import CloseIcon from "@/components/icons/close-icon";
 import RefreshIcon from "@/components/icons/refresh";
-import SyntaxHighlighter from "@/components/syntax-highlighter";
 import { extractFirstCodeBlock, splitByFirstCodeFence } from "@/lib/utils";
 import { useState } from "react";
 import type { Chat, Message } from "./page";
 import { Share } from "./share";
 import { StickToBottom } from "use-stick-to-bottom";
+import dynamic from "next/dynamic";
+
+const CodeRunner = dynamic(() => import("@/components/code-runner"), {
+  ssr: false,
+});
+const SyntaxHighlighter = dynamic(
+  () => import("@/components/syntax-highlighter"),
+  {
+    ssr: false,
+  },
+);
 
 export default function CodeViewer({
   chat,
@@ -20,6 +29,7 @@ export default function CodeViewer({
   activeTab,
   onTabChange,
   onClose,
+  onRequestFix,
 }: {
   chat: Chat;
   streamText: string;
@@ -28,6 +38,7 @@ export default function CodeViewer({
   activeTab: string;
   onTabChange: (v: "code" | "preview") => void;
   onClose: () => void;
+  onRequestFix: (e: string) => void;
 }) {
   const app = message ? extractFirstCodeBlock(message.content) : undefined;
   const streamAppParts = splitByFirstCodeFence(streamText);
@@ -113,7 +124,12 @@ export default function CodeViewer({
             <>
               {language && (
                 <div className="flex h-full items-center justify-center">
-                  <CodeRunner language={language} code={code} key={refresh} />
+                  <CodeRunner
+                    onRequestFix={onRequestFix}
+                    language={language}
+                    code={code}
+                    key={refresh}
+                  />
                 </div>
               )}
             </>
@@ -128,7 +144,12 @@ export default function CodeViewer({
             <div className="border-t border-gray-300 px-4 py-4">Output</div>
             <div className="flex grow items-center justify-center border-t">
               {!streamAppIsGenerating && (
-                <CodeRunner language={language} code={code} key={refresh} />
+                <CodeRunner
+                  onRequestFix={onRequestFix}
+                  language={language}
+                  code={code}
+                  key={refresh}
+                />
               )}
             </div>
           </div>
